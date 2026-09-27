@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>隨心寫</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f4f0eb;
+            background-image: radial-gradient(#e3ded6 1px, transparent 1px);
+            background-size: 24px 24px;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        .sticky-note {
+            transition: box-shadow 0.2s ease;
+            touch-action: none;
+        }
+        .sticky-note:hover {
+            box-shadow: 0 16px 32px rgba(60, 42, 33, 0.15), 0 6px 12px rgba(60, 42, 33, 0.1);
+        }
+        textarea::-webkit-scrollbar {
+            width: 6px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: rgba(115, 99, 122, 0.2);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col text-[#4a3f35] overflow-hidden">
+
+    <header class="bg-[#fcfbf9]/95 backdrop-blur-md border-b border-[#e6dfd5] z-30 px-4 sm:px-6 py-3 shadow-sm flex-shrink-0">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center justify-between w-full sm:w-auto">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-[#5c4b3e] flex items-center justify-center shadow-sm text-[#f4f0eb] text-base font-bold">
+                        <i class="fa-solid fa-note-sticky"></i>
+                    </div>
+                    <h1 class="text-base font-semibold tracking-wide text-[#3c2a21]">隨心寫</h1>
+                </div>
+                <!-- Mobile action buttons inline with header -->
+                <div class="flex items-center space-x-2 sm:hidden">
+                    <button onclick="openModal()" class="bg-[#5c4b3e] text-[#f4f0eb] w-9 h-9 rounded-xl flex items-center justify-center shadow-sm active:scale-95 transition-all" title="新增">
+                        <i class="fa-solid fa-plus text-sm"></i>
+                    </button>
+                    <button onclick="confirmClearAll()" class="w-9 h-9 text-[#a69888] hover:text-red-700 rounded-xl flex items-center justify-center transition-all" title="清空">
+                        <i class="fa-solid fa-trash-can text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+                <!-- Search Box -->
+                <div class="relative flex-1 sm:flex-initial">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-[#8c7a6b]">
+                        <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                    </span>
+                    <input type="text" id="searchInput" placeholder="搜尋內容..." 
+                        class="w-full sm:w-48 pl-8 pr-3 py-2 bg-[#f0ece4] border border-[#dcd4c9] rounded-xl text-xs sm:text-sm text-[#3c2a21] placeholder-[#a69888] focus:outline-none focus:ring-2 focus:ring-[#5c4b3e] focus:bg-white transition-all">
+                </div>
+
+                <!-- Layout Mode Toggle -->
+                <div class="bg-[#f0ece4] p-1 rounded-xl flex items-center border border-[#dcd4c9]">
+                    <button id="modeFreeBtn" onclick="setMode('free')" title="自由畫布模式" 
+                        class="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all bg-[#5c4b3e] text-white shadow-sm flex items-center gap-1">
+                        <i class="fa-solid fa-hand"></i><span class="hidden xs:inline">自由</span>
+                    </button>
+                    <button id="modeGridBtn" onclick="setMode('grid')" title="整齊排版模式" 
+                        class="px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-[#736355] hover:text-[#3c2a21] flex items-center gap-1">
+                        <i class="fa-solid fa-border-all"></i><span class="hidden xs:inline">整齊</span>
+                    </button>
+                </div>
+
+                <!-- Desktop Add Note Button -->
+                <button onclick="openModal()" 
+                    class="hidden sm:flex bg-[#5c4b3e] hover:bg-[#43352b] text-[#f4f0eb] font-medium px-4 py-2 rounded-xl text-sm shadow-sm hover:shadow transition-all items-center space-x-2 active:scale-95">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>新增便利貼</span>
+                </button>
+
+                <!-- Desktop Clear All Button -->
+                <button onclick="confirmClearAll()" title="清空全部" 
+                    class="hidden sm:flex p-2 text-[#a69888] hover:text-red-700 hover:bg-red-50 rounded-xl transition-all">
+                    <i class="fa-solid fa-trash-can text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main id="canvasContainer" class="flex-1 relative overflow-hidden bg-transparent">
+        <!-- Empty State Message -->
+        <div id="emptyState" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-[#a69888] pointer-events-none z-10">
+            <div class="w-16 h-16 sm:w-20 sm:h-20 bg-[#e8e2d8] rounded-full flex items-center justify-center text-xl sm:text-2xl mb-4 text-[#736355]">
+                <i class="fa-solid fa-feather"></i>
+            </div>
+            <h3 class="text-sm sm:text-base font-medium text-[#5c4b3e] mb-1">目前尚無任何便利貼</h3>
+            <p class="text-xs max-w-xs sm:max-w-sm text-[#8c7a6b]">點擊右上角的「+」按鈕開始記錄您的隨心靈感。</p>
+        </div>
+
+        <!-- Notes Render Container -->
+        <div id="notesWrapper" class="w-full h-full relative"></div>
+    </main>
+
+    <div id="noteModal" class="fixed inset-0 bg-[#3c2a21]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-[#fcfbf9] w-full max-w-md rounded-2xl shadow-2xl border border-[#e6dfd5] transform scale-95 transition-transform duration-300 overflow-hidden" id="modalCard">
+            <div class="px-5 py-3.5 border-b border-[#e6dfd5] flex justify-between items-center bg-[#f4f0eb]/50">
+                <h3 id="modalTitle" class="font-semibold text-[#3c2a21] text-sm sm:text-base flex items-center gap-2">
+                    <i class="fa-solid fa-note-sticky text-[#736355]"></i> 新增便利貼
+                </h3>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-[#8c7a6b] hover:bg-[#e8e2d8] hover:text-[#3c2a21] transition-colors">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form id="noteForm" onsubmit="handleFormSubmit(event)" class="p-5 sm:p-6 space-y-4">
+                <input type="hidden" id="noteId">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-[#736355] uppercase tracking-wider mb-1.5">內容</label>
+                    <textarea id="noteContentInput" rows="6" placeholder="寫下您的想法、靈感或代辦事項..." 
+                        class="w-full px-4 py-3 bg-[#f4f0eb]/60 border border-[#dcd4c9] rounded-xl text-sm text-[#3c2a21] placeholder-[#a69888] focus:outline-none focus:ring-2 focus:ring-[#5c4b3e] focus:bg-white transition-all resize-none"></textarea>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-1">
+                    <button type="button" onclick="closeModal()" 
+                        class="px-4 py-2.5 rounded-xl border border-[#dcd4c9] text-xs sm:text-sm font-medium text-[#736355] hover:bg-[#f4f0eb] transition-colors">
+                        取消
+                    </button>
+                    <button type="submit" 
+                        class="px-5 py-2.5 rounded-xl bg-[#5c4b3e] hover:bg-[#43352b] text-white text-xs sm:text-sm font-medium shadow-sm transition-all">
+                        儲存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div id="toastContent" class="bg-[#3c2a21] text-[#f4f0eb] px-4 py-3 rounded-xl shadow-xl flex items-center space-x-3 text-xs sm:text-sm">
+            <i id="toastIcon" class="fa-solid fa-circle-check text-[#b5a697]"></i>
+            <span id="toastMessage">已成功儲存！</span>
+        </div>
+    </div>
+
+    <script>
+        let notes = [];
+        let currentMode = 'free'; // 'free' or 'grid'
+        let searchQuery = '';
+        
+        // Dragging state variables supporting mouse and single-touch
+        let draggedNoteId = null;
+        let startPointerX = 0;
+        let startPointerY = 0;
+        let startNoteX = 0;
+        let startNoteY = 0;
+        let highestZIndex = 10;
+
+        window.onload = function() {
+            loadNotesFromStorage();
+            setupEventListeners();
+            renderNotes();
+            
+            // Handle window resize to clamp positions safely
+            window.addEventListener('resize', () => {
+                if (currentMode === 'free') {
+                    clampNotesToBounds();
+                    renderNotes();
+                }
+            });
+        };
+
+        function loadNotesFromStorage() {
+            try {
+                const saved = localStorage.getItem('minimal_purple_sticky_notes_v6');
+                if (saved) {
+                    notes = JSON.parse(saved);
+                } else {
+                    const isMobile = window.innerWidth < 640;
+                    notes = [
+                        {
+                            id: 'note_sample_1',
+                            content: '✨ 歡迎使用「隨心寫」\n• 手指或滑鼠點擊即可拖曳便利貼\n• 點擊右上角「+」紀錄靈感\n• 支援自由畫布與整齊排列切換',
+                            x: isMobile ? 20 : 80,
+                            y: isMobile ? 20 : 80,
+                            rotation: -1,
+                            zIndex: 2,
+                            updatedAt: new Date().toISOString()
+                        }
+                    ];
+                    saveNotesToStorage();
+                }
+            } catch (e) {
+                console.error('Failed to load notes', e);
+                notes = [];
+            }
+        }
+
+        function saveNotesToStorage() {
+            try {
+                localStorage.setItem('minimal_purple_sticky_notes_v6', JSON.stringify(notes));
+            } catch (e) {
+                console.error('Failed to save notes', e);
+            }
+        }
+
+        function setupEventListeners() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value.toLowerCase().trim();
+                renderNotes();
+            });
+
+            // Universal pointer / mouse / touch move & end listeners
+            window.addEventListener('mousemove', onPointerMove);
+            window.addEventListener('mouseup', onPointerUp);
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('touchend', onPointerUp);
+            window.addEventListener('touchcancel', onPointerUp);
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            const freeBtn = document.getElementById('modeFreeBtn');
+            const gridBtn = document.getElementById('modeGridBtn');
+            
+            if (mode === 'free') {
+                freeBtn.className = "px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all bg-[#5c4b3e] text-white shadow-sm flex items-center gap-1";
+                gridBtn.className = "px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-[#736355] hover:text-[#3c2a21] flex items-center gap-1";
+                clampNotesToBounds();
+            } else {
+                gridBtn.className = "px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all bg-[#5c4b3e] text-white shadow-sm flex items-center gap-1";
+                freeBtn.className = "px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-[#736355] hover:text-[#3c2a21] flex items-center gap-1";
+            }
+            renderNotes();
+        }
+
+        function clampNotesToBounds() {
+            const container = document.getElementById('canvasContainer');
+            if (!container) return;
+            const maxW = Math.max(100, container.clientWidth - 260);
+            const maxH = Math.max(100, container.clientHeight - 280);
+
+            notes.forEach(note => {
+                if (note.x > maxW) note.x = Math.max(10, maxW);
+                if (note.y > maxH) note.y = Math.max(10, maxH);
+            });
+        }
+
+        function openModal(noteId = null) {
+            const modal = document.getElementById('noteModal');
+            const modalCard = document.getElementById('modalCard');
+            const modalTitle = document.getElementById('modalTitle');
+            const noteIdInput = document.getElementById('noteId');
+            const contentInput = document.getElementById('noteContentInput');
+
+            if (noteId) {
+                const note = notes.find(n => n.id === noteId);
+                if (note) {
+                    modalTitle.innerHTML = `<i class="fa-solid fa-pen-to-square text-[#736355]"></i> 編輯便利貼`;
+                    noteIdInput.value = note.id;
+                    contentInput.value = note.content;
+                }
+            } else {
+                modalTitle.innerHTML = `<i class="fa-solid fa-note-sticky text-[#736355]"></i> 新增便利貼`;
+                noteIdInput.value = '';
+                contentInput.value = '';
+            }
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modalCard.classList.remove('scale-95');
+            modalCard.classList.add('scale-100');
+            setTimeout(() => contentInput.focus(), 100);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('noteModal');
+            const modalCard = document.getElementById('modalCard');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modalCard.classList.remove('scale-100');
+            modalCard.classList.add('scale-95');
+        }
+
+        function handleFormSubmit(event) {
+            event.preventDefault();
+            const id = document.getElementById('noteId').value;
+            const content = document.getElementById('noteContentInput').value.trim();
+
+            if (!content) {
+                showToast('請填寫便利貼內容喔！', 'error');
+                return;
+            }
+
+            if (id) {
+                const note = notes.find(n => n.id === id);
+                if (note) {
+                    note.content = content;
+                    note.updatedAt = new Date().toISOString();
+                }
+                showToast('便利貼已更新！');
+            } else {
+                const container = document.getElementById('canvasContainer');
+                const containerWidth = Math.max(200, container.clientWidth - 260);
+                const containerHeight = Math.max(200, container.clientHeight - 280);
+                
+                const randomX = Math.floor(Math.random() * containerWidth) + 20;
+                const randomY = Math.floor(Math.random() * containerHeight) + 20;
+                const randomRotation = (Math.random() * 4) - 2;
+
+                highestZIndex++;
+                const newNote = {
+                    id: 'note_' + Date.now(),
+                    content: content,
+                    x: Math.max(10, randomX),
+                    y: Math.max(10, randomY),
+                    rotation: randomRotation,
+                    zIndex: highestZIndex,
+                    updatedAt: new Date().toISOString()
+                };
+                notes.push(newNote);
+                showToast('成功新增便利貼！');
+            }
+
+            saveNotesToStorage();
+            closeModal();
+            renderNotes();
+        }
+
+        function deleteNote(id) {
+            notes = notes.filter(n => n.id !== id);
+            saveNotesToStorage();
+            renderNotes();
+            showToast('便利貼已刪除');
+        }
+
+        function confirmClearAll() {
+            if (notes.length === 0) return;
+            if (confirm('確定要清空所有的便利貼嗎？')) {
+                notes = [];
+                saveNotesToStorage();
+                renderNotes();
+                showToast('已清空所有便利貼');
+            }
+        }
+
+        // Drag start for both Mouse and Touch
+        function startDrag(e, id) {
+            if (currentMode !== 'free') return;
+            // Avoid dragging when interacting with buttons or text selection
+            if (e.target.closest('button') || e.target.closest('textarea') || e.target.closest('input')) return;
+
+            draggedNoteId = id;
+            const note = notes.find(n => n.id === id);
+            if (!note) return;
+
+            highestZIndex++;
+            note.zIndex = highestZIndex;
+
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+
+            startPointerX = clientX;
+            startPointerY = clientY;
+            startNoteX = note.x;
+            startNoteY = note.y;
+
+            const el = document.getElementById(`note_card_${id}`);
+            if (el) {
+                el.style.zIndex = note.zIndex;
+                el.classList.add('cursor-grabbing');
+            }
+        }
+
+        function onPointerMove(e) {
+            if (!draggedNoteId || currentMode !== 'free') return;
+            updateDragPosition(e.clientX, e.clientY);
+        }
+
+        function onTouchMove(e) {
+            if (!draggedNoteId || currentMode !== 'free') return;
+            if (e.touches && e.touches[0]) {
+                updateDragPosition(e.touches[0].clientX, e.touches[0].clientY);
+                e.preventDefault(); // Prevent page scrolling while dragging note on mobile
+            }
+        }
+
+        function updateDragPosition(clientX, clientY) {
+            const dx = clientX - startPointerX;
+            const dy = clientY - startPointerY;
+
+            let newX = startNoteX + dx;
+            let newY = startNoteY + dy;
+
+            const container = document.getElementById('canvasContainer');
+            const maxX = container.clientWidth - 240;
+            const maxY = container.clientHeight - 260;
+
+            newX = Math.max(5, Math.min(newX, Math.max(5, maxX)));
+            newY = Math.max(5, Math.min(newY, Math.max(5, maxY)));
+
+            const note = notes.find(n => n.id === draggedNoteId);
+            if (note) {
+                note.x = newX;
+                note.y = newY;
+                const el = document.getElementById(`note_card_${draggedNoteId}`);
+                if (el) {
+                    el.style.left = `${newX}px`;
+                    el.style.top = `${newY}px`;
+                }
+            }
+        }
+
+        function onPointerUp() {
+            if (draggedNoteId) {
+                const el = document.getElementById(`note_card_${draggedNoteId}`);
+                if (el) el.classList.remove('cursor-grabbing');
+                draggedNoteId = null;
+                saveNotesToStorage();
+            }
+        }
+
+        // Render notes function
+        function renderNotes() {
+            const wrapper = document.getElementById('notesWrapper');
+            const emptyState = document.getElementById('emptyState');
+
+            const filteredNotes = notes.filter(note => {
+                return note.content.toLowerCase().includes(searchQuery);
+            });
+
+            if (notes.length === 0 || filteredNotes.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            const noteBg = 'bg-[#f4f0f8]';
+            const noteText = 'text-[#3c3445]';
+            const noteBorder = 'border-[#d8ccdf]';
+            const notePin = 'bg-[#73637a]';
+
+            if (currentMode === 'grid') {
+                wrapper.className = "w-full h-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 overflow-y-auto p-4 sm:p-6 z-20";
+                wrapper.innerHTML = filteredNotes.map(note => `
+                    <div class="sticky-note ${noteBg} ${noteText} p-4 sm:p-5 rounded-2xl shadow-md border ${noteBorder} flex flex-col justify-between h-64 sm:h-72 relative group transition-all">
+                        <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 w-3.5 h-3.5 rounded-full ${notePin} shadow-sm border border-white/60 flex items-center justify-center">
+                            <div class="w-1 h-1 rounded-full bg-white/70"></div>
+                        </div>
+
+                        <div class="flex-1 overflow-hidden flex flex-col pt-1">
+                            <div class="flex justify-end items-center mb-1 space-x-1">
+                                <button onclick="openModal('${note.id}')" class="p-1.5 hover:bg-black/5 rounded-lg text-xs text-[#73637a]" title="編輯">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button onclick="deleteNote('${note.id}')" class="p-1.5 hover:bg-red-500/10 hover:text-red-700 rounded-lg text-xs text-[#73637a]" title="刪除">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="text-xs sm:text-sm whitespace-pre-wrap overflow-y-auto opacity-95 font-normal leading-relaxed flex-1">${escapeHtml(note.content)}</div>
+                        </div>
+
+                        <div class="pt-3 mt-2 border-t border-[#d8ccdf]/40 flex justify-between items-center text-[10px] text-[#73637a]">
+                            <span>${formatDate(note.updatedAt)}</span>
+                            <span class="tracking-wider uppercase font-medium">Note</span>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                wrapper.className = "w-full h-full relative overflow-hidden";
+                wrapper.innerHTML = filteredNotes.map(note => `
+                    <div id="note_card_${note.id}" 
+                         onmousedown="startDrag(event, '${note.id}')"
+                         ontouchstart="startDrag(event, '${note.id}')"
+                         style="left: ${note.x || 20}px; top: ${note.y || 20}px; z-index: ${note.zIndex || 2}; transform: rotate(${note.rotation || 0}deg);"
+                         class="sticky-note absolute w-56 sm:w-64 h-64 sm:h-72 ${noteBg} ${noteText} p-4 sm:p-5 rounded-2xl shadow-md border ${noteBorder} flex flex-col justify-between cursor-grab select-none">
+                        
+                        <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 w-3.5 h-3.5 rounded-full ${notePin} shadow-sm border border-white/60 flex items-center justify-center pointer-events-none">
+                            <div class="w-1 h-1 rounded-full bg-white/70"></div>
+                        </div>
+
+                        <div class="flex-1 overflow-hidden flex flex-col pt-1">
+                            <div class="flex justify-end items-center mb-1 space-x-1">
+                                <button onclick="openModal('${note.id}')" class="p-1.5 hover:bg-black/5 rounded-lg text-xs text-[#73637a]" title="編輯">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button onclick="deleteNote('${note.id}')" class="p-1.5 hover:bg-red-500/10 hover:text-red-700 rounded-lg text-xs text-[#73637a]" title="刪除">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="text-xs sm:text-sm whitespace-pre-wrap overflow-y-auto opacity-95 font-normal leading-relaxed flex-1 pointer-events-auto">${escapeHtml(note.content)}</div>
+                        </div>
+
+                        <div class="pt-3 mt-2 border-t border-[#d8ccdf]/40 flex justify-between items-center text-[10px] text-[#73637a] pointer-events-none">
+                            <span>${formatDate(note.updatedAt)}</span>
+                            <span class="tracking-wider uppercase font-medium">Note</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const messageEl = document.getElementById('toastMessage');
+            const iconEl = document.getElementById('toastIcon');
+
+            messageEl.textContent = message;
+            if (type === 'error') {
+                iconEl.className = "fa-solid fa-circle-exclamation text-rose-300";
+            } else {
+                iconEl.className = "fa-solid fa-circle-check text-[#b5a697]";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
